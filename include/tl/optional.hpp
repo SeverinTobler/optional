@@ -653,6 +653,47 @@ template <class T> struct optional_delete_assign_base<T, false, false> {
   operator=(optional_delete_assign_base &&) noexcept = delete;
 };
 
+// std::experimental::is_detected from library fundamentals TS v2
+template <template <class ...> class, class, class ...>
+struct is_detected_ { using type = std::false_type; };
+
+template <template <class ...> class D, class ... Ts>
+struct is_detected_<D, void_t<D<Ts...>>, Ts...> { using type = std::true_type; };
+
+template <template <class ...> class D, class ... Ts>
+using is_detected = typename is_detected_<D, void, Ts...>::type;
+
+// traits for comparison
+template <class T, class U>
+using equality_comparison = decltype(std::declval<T const&>() == std::declval<U const&>());
+template <class T, class U>
+using is_equal_comparable = is_detected<equality_comparison, T, U>;
+
+template <class T, class U>
+using inequality_comparison = decltype(std::declval<T const&>() != std::declval<U const&>());
+template <class T, class U>
+using is_inequal_comparable = is_detected<inequality_comparison, T, U>;
+
+template <class T, class U>
+using less_comparison = decltype(std::declval<T const&>() < std::declval<U const&>());
+template <class T, class U>
+using is_less_comparable = is_detected<less_comparison, T, U>;
+
+template <class T, class U>
+using greater_comparison = decltype(std::declval<T const&>() > std::declval<U const&>());
+template <class T, class U>
+using is_greater_comparable = is_detected<greater_comparison, T, U>;
+
+template <class T, class U>
+using less_equality_comparison = decltype(std::declval<T const&>() <= std::declval<U const&>());
+template <class T, class U>
+using is_less_equal_comparable = is_detected<less_equality_comparison, T, U>;
+
+template <class T, class U>
+using greater_equality_comparison = decltype(std::declval<T const&>() >= std::declval<U const&>());
+template <class T, class U>
+using is_greater_equal_comparable = is_detected<greater_equality_comparison, T, U>;
+
 } // namespace detail
 
 /// A tag type to represent an empty optional
@@ -1335,34 +1376,40 @@ public:
 }; // namespace tl
 
 /// Compares two optional objects
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_equal_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator==(const optional<T> &lhs,
                                  const optional<U> &rhs) {
   return lhs.has_value() == rhs.has_value() &&
          (!lhs.has_value() || *lhs == *rhs);
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_inequal_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator!=(const optional<T> &lhs,
                                  const optional<U> &rhs) {
   return lhs.has_value() != rhs.has_value() ||
          (lhs.has_value() && *lhs != *rhs);
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_less_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator<(const optional<T> &lhs,
                                 const optional<U> &rhs) {
   return rhs.has_value() && (!lhs.has_value() || *lhs < *rhs);
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_greater_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator>(const optional<T> &lhs,
                                 const optional<U> &rhs) {
   return lhs.has_value() && (!rhs.has_value() || *lhs > *rhs);
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_less_equal_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator<=(const optional<T> &lhs,
                                  const optional<U> &rhs) {
   return !lhs.has_value() || (rhs.has_value() && *lhs <= *rhs);
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_greater_equal_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator>=(const optional<T> &lhs,
                                  const optional<U> &rhs) {
   return !rhs.has_value() || (lhs.has_value() && *lhs >= *rhs);
@@ -1419,51 +1466,63 @@ inline constexpr bool operator>=(nullopt_t, const optional<T> &rhs) noexcept {
 }
 
 /// Compares the optional with a value.
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_equal_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator==(const optional<T> &lhs, const U &rhs) {
   return lhs.has_value() ? *lhs == rhs : false;
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_equal_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator==(const U &lhs, const optional<T> &rhs) {
   return rhs.has_value() ? lhs == *rhs : false;
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_inequal_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator!=(const optional<T> &lhs, const U &rhs) {
   return lhs.has_value() ? *lhs != rhs : true;
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_inequal_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator!=(const U &lhs, const optional<T> &rhs) {
   return rhs.has_value() ? lhs != *rhs : true;
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_less_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator<(const optional<T> &lhs, const U &rhs) {
   return lhs.has_value() ? *lhs < rhs : true;
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_less_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator<(const U &lhs, const optional<T> &rhs) {
   return rhs.has_value() ? lhs < *rhs : false;
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_less_equal_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator<=(const optional<T> &lhs, const U &rhs) {
   return lhs.has_value() ? *lhs <= rhs : true;
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_less_equal_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator<=(const U &lhs, const optional<T> &rhs) {
   return rhs.has_value() ? lhs <= *rhs : false;
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_greater_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator>(const optional<T> &lhs, const U &rhs) {
   return lhs.has_value() ? *lhs > rhs : false;
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_greater_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator>(const U &lhs, const optional<T> &rhs) {
   return rhs.has_value() ? lhs > *rhs : true;
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_greater_equal_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator>=(const optional<T> &lhs, const U &rhs) {
   return lhs.has_value() ? *lhs >= rhs : false;
 }
-template <class T, class U>
+template <class T, class U,
+          detail::enable_if_t<detail::is_greater_equal_comparable<T, U>::value>* = nullptr >
 inline constexpr bool operator>=(const U &lhs, const optional<T> &rhs) {
   return rhs.has_value() ? lhs >= *rhs : true;
 }
